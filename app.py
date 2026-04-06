@@ -2,46 +2,41 @@ import streamlit as st
 import streamlit.components.v1 as components
 import os
 
-# إعداد الصفحة
-st.set_page_config(page_title="EEG Smart Lab", layout="wide")
+# 1. إعداد الصفحة (هادي ديريها مرة وحدة برك في الكود كامل)
+st.set_page_config(page_title="EEG Smart Lab", layout="wide", initial_sidebar_state="collapsed")
 
-# دالة ذكية تقرأ أي ملف HTML عندك في GitHub
+# 2. دالة قراءة الملفات
 def load_page(file_name):
     if os.path.exists(file_name):
         with open(file_name, 'r', encoding='utf-8') as f:
             return f.read()
     return f"<h3>Fichier {file_name} introuvable</h3>"
 
-# نظام التنقل (Navigation)
+# 3. إدارة التنقل (Navigation)
 if 'active_page' not in st.session_state:
     st.session_state.active_page = "welcome"
 
-# --- القائمة الجانبية للتحكم ---
-st.sidebar.title("🎮 Navigation")
-if st.sidebar.button("🏠 Accueil"):
-    st.session_state.active_page = "welcome"
-    st.rerun()
+# 4. الـ Sidebar (نظفتو باش يجي باهي)
+with st.sidebar:
+    st.markdown("## 🎮 Menu")
+    if st.button("🏠 Accueil", use_container_width=True):
+        st.session_state.active_page = "welcome"
+    if st.button("👤 Connexion", use_container_width=True):
+        st.session_state.active_page = "login"
+    if st.button("📊 Dashboard EEG", use_container_width=True):
+        st.session_state.active_page = "dashboard"
 
-if st.sidebar.button("👤 Connexion"):
-    st.session_state.active_page = "login"
-    st.rerun()
+# 5. عرض الصفحة المختارة (بدون تكرار)
+page_to_load = f"{st.session_state.active_page}.html"
+content = load_page(page_to_load)
 
-if st.sidebar.button("📊 Dashboard EEG"):
-    st.session_state.active_page = "dashboard"
-    st.rerun()
+# حقن CSS بسيط باش نحيو الفراغات الزايدة نتاع Streamlit
+st.markdown("""
+    <style>
+    .block-container { padding-top: 0rem; padding-bottom: 0rem; }
+    iframe { border: none; }
+    </style>
+""", unsafe_allow_html=True)
 
-# --- عرض الصفحات ---
-if st.session_state.active_page == "welcome":
-    # يعرض الملف اللي شفتو في تصويرتك (welcome.html)
-    content = load_page("welcome.html")
-    components.html(content, height=1000, scrolling=True)
-
-elif st.session_state.active_page == "login":
-    # يعرض صفحة الدخول (login.html)
-    content = load_page("login.html")
-    components.html(content, height=1000, scrolling=True)
-
-elif st.session_state.active_page == "dashboard":
-    # يعرض الواجهة السوداء (dashboard.html)
-    content = load_page("dashboard.html")
-    components.html(content, height=1000, scrolling=True)
+# عرض المحتوى
+components.html(content, height=900, scrolling=True)
