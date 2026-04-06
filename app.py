@@ -2,60 +2,90 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import numpy as np
+import streamlit.components.v1 as components
 
-# --- 1. دالة التحقق من الطبيب في القاعدة ---
-def verify_doctor(username, password):
-    try:
-        conn = sqlite3.connect('medical_system.db')
-        cur = conn.cursor()
-        # هنا البحث في جدول الأطباء نتاعك
-        cur.execute("SELECT * FROM doctor WHERE username=? AND password=?", (username, password))
-        user_data = cur.fetchone()
-        conn.close()
-        return user_data
-    except:
-        return None
+# --- إعدادات الصفحة ---
+st.set_page_config(page_title="EEG Core AI", layout="wide")
 
-# --- 2. إدارة الحالة (Session State) ---
-if 'auth_status' not in st.session_state:
-    st.session_state['auth_status'] = False
+# --- دالة للتعامل مع قاعدة البيانات ---
+def get_db():
+    conn = sqlite3.connect('medical_system.db')
+    return conn
 
-# --- 3. واجهة تسجيل الدخول (الصفحة الأولى) ---
-if not st.session_state['auth_status']:
-    st.markdown("<h1 style='text-align: center; color: #00f2ff;'>🏥 تسجيل دخول الأطباء</h1>", unsafe_allow_html=True)
+# --- إدارة حالة الجلسة (Session State) ---
+if 'auth' not in st.session_state:
+    st.session_state['auth'] = False
+if 'page' not in st.session_state:
+    st.session_state['page'] = 'login'
+
+# --- 1. واجهة تسجيل الدخول والتسجيل (Login / Sign Up) ---
+if not st.session_state['auth']:
+    st.markdown("<h1 style='text-align:center; color:#00f2ff;'>👨‍⚕️ Espace Médecin</h1>", unsafe_allow_html=True)
     
-    with st.container():
-        col1, col2, col3 = st.columns([1,2,1])
-        with col2:
-            u = st.text_input("اسم المستخدم (Doctor Username)")
-            p = st.text_input("كلمة المرور", type="password")
-            if st.button("تسجيل الدخول", use_container_width=True):
-                check = verify_doctor(u, p)
-                if check:
-                    st.session_state['auth_status'] = True
-                    st.session_state['dr_name'] = u
-                    st.rerun() # إعادة التشغيل لفتح الواجهة الجديدة
+    choice = st.radio("خيارات الوصول", ["تسجيل الدخول", "فتح حساب جديد (Sign Up)"], horizontal=True)
+
+    if choice == "تسجيل الدخول":
+        with st.form("login_form"):
+            user = st.text_input("اسم المستخدم")
+            pwd = st.text_input("كلمة المرور", type="password")
+            submit = st.form_submit_button("دخول")
+            if submit:
+                conn = get_db()
+                res = conn.execute("SELECT * FROM doctor WHERE username=? AND password=?", (user, pwd)).fetchone()
+                conn.close()
+                if res:
+                    st.session_state['auth'] = True
+                    st.session_state['user_name'] = user
+                    st.rerun()
                 else:
-                    st.error("❌ خطأ! الطبيب غير مسجل في قاعدة البيانات.")
+                    st.error("خطأ في البيانات أو الحساب غير موجود")
 
-# --- 4. الواجهة الثانية (تفتح فقط بعد الدخول الصحيح) ---
+    else:  # واجهة الـ Sign Up (عمر الفورم كامل)
+        with st.form("signup_form"):
+            st.info("يرجى ملء كافة المعلومات للتسجيل في النظام")
+            new_user = st.text_input("اسم المستخدم الجديد")
+            new_pwd = st.text_input("كلمة المرور", type="password")
+            full_name = st.text_input("الاسم الكامل")
+            specialty = st.text_input("التخصص الطبي")
+            submit_signup = st.form_submit_button("إنشاء الحساب")
+            
+            if submit_signup:
+                try:
+                    conn = get_db()
+                    conn.execute("INSERT INTO doctor (username, password, name, specialty) VALUES (?,?,?,?)", 
+                                 (new_user, new_pwd, full_name, specialty))
+                    conn.commit()
+                    conn.close()
+                    st.success("تم التسجيل بنجاح! يمكنك الآن تسجيل الدخول.")
+                except:
+                    st.error("حدث خطأ (ربما اسم المستخدم موجود مسبقاً)")
+
+# --- 2. الواجهة الاحترافية (بعد نجاح الدخول) ---
 else:
-    st.sidebar.success(f"مرحباً دكتور {st.session_state['dr_name']}")
-    if st.sidebar.button("تسجيل الخروج"):
-        st.session_state['auth_status'] = False
-        st.rerun()
-
-    st.title("🔬 واجهة تحليل إشارات EEG")
-    st.write("---")
+    # هنا نحطو كود الـ HTML اللي بعثتيهولي (الأسود والنيون)
+    # ملاحظة: نستخدم st.components.v1.html لعرض تصميمك كما هو
     
-    # هنا نربطو المودال
-    uploaded_file = st.file_uploader("ارفع ملف الإشارة (.txt) للتحليل بالمودال", type=['txt'])
+    html_dashboard = f"""
+    <style>
+        :root {{ --bg-deep: #020406; --neon-blue: #00f2ff; }}
+        body {{ background-color: #020406; color: white; font-family: 'Segoe UI'; }}
+        .header {{ padding: 20px; border-bottom: 1px solid #161b22; display: flex; justify-content: space-between; }}
+        .monitor {{ border: 2px solid #333; height: 400px; border-radius: 10px; margin-top: 20px; }}
+    </style>
+    <div class="header">
+        <h2>🧠 EEG AI SYSTEM - Monitor</h2>
+        <div style="color: #00f2ff;">Bienvenue, Dr. {st.session_state['user_name']}</div>
+    </div>
+    <div class="monitor">
+        <h4 style="text-align:center; padding-top: 150px; color: #444;">L'oscilloscope est prêt...</h4>
+    </div>
+    """
     
+    components.html(html_dashboard, height=600)
+    
+    # أزرار التحكم نتاع Streamlit
+    st.sidebar.button("Déconnexion", on_click=lambda: st.session_state.update({'auth': False}))
+    uploaded_file = st.file_uploader("Ajouter Séquence EEG", type=['txt'])
     if uploaded_file:
-        st.info("جاري معالجة الإشارة وتحويلها إلى Scalogram...")
-        # رسم بياني يشبه الأوسيلوسكوب نتاعك
-        chart_data = pd.DataFrame(np.random.randn(100, 1), columns=['EEG'])
-        st.line_chart(chart_data)
-        
-        # التنبيه الأحمر في حال وجود صرع
-        st.error("🚨 تنبيه: تم اكتشاف نوبة صرع (Seizure Detected)")
+        st.line_chart(np.random.randn(50, 1))
+        st.success("Analyse en cours...")
