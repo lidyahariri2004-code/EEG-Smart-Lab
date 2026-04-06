@@ -3,55 +3,59 @@ import sqlite3
 import pandas as pd
 import numpy as np
 
-# إعداد الصفحة
-st.set_page_config(page_title="EEG Smart Lab", layout="wide")
-
-# دالة لجلب البيانات من ملفك medical_system.db
-def login_check(user, pwd, table):
+# --- 1. دالة التحقق من الطبيب في القاعدة ---
+def verify_doctor(username, password):
     try:
         conn = sqlite3.connect('medical_system.db')
         cur = conn.cursor()
-        cur.execute(f"SELECT * FROM {table} WHERE username=? AND password=?", (user, pwd))
-        res = cur.fetchone()
+        # هنا البحث في جدول الأطباء نتاعك
+        cur.execute("SELECT * FROM doctor WHERE username=? AND password=?", (username, password))
+        user_data = cur.fetchone()
         conn.close()
-        return res
+        return user_data
     except:
         return None
 
-# --- واجهة الأزرار الثلاثة (بالستايل نتاعك) ---
-st.markdown("<h1 style='text-align: center; color: #00f2ff;'>🧠 EEG SMART LAB</h1>", unsafe_allow_html=True)
-st.write("---")
+# --- 2. إدارة الحالة (Session State) ---
+if 'auth_status' not in st.session_state:
+    st.session_state['auth_status'] = False
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    if st.button("👨‍⚕️ Espace DOCTOR", use_container_width=True):
-        st.session_state['role'] = 'doctor'
-with col2:
-    if st.button("⚙️ Espace ADMIN", use_container_width=True):
-        st.session_state['role'] = 'admin'
-with col3:
-    if st.button("👤 Espace PATIENT", use_container_width=True):
-        st.session_state['role'] = 'patient'
-
-# --- منطق تسجيل الدخول ---
-if 'role' in st.session_state:
-    st.sidebar.title(f"Login: {st.session_state['role']}")
-    u = st.sidebar.text_input("Username")
-    p = st.sidebar.text_input("Password", type="password")
+# --- 3. واجهة تسجيل الدخول (الصفحة الأولى) ---
+if not st.session_state['auth_status']:
+    st.markdown("<h1 style='text-align: center; color: #00f2ff;'>🏥 تسجيل دخول الأطباء</h1>", unsafe_allow_html=True)
     
-    if st.sidebar.button("Se Connecter"):
-        table_name = "doctor" if st.session_state['role'] == "doctor" else "patient"
-        # إذا كان أدمين يدخل بـ admin/admin أو من القاعدة
-        if (st.session_state['role'] == "admin" and u == "admin" and p == "admin") or login_check(u, p, table_name):
-            st.session_state['user'] = u
-            st.success(f"Bienvenue {u}!")
-        else:
-            st.error("Identifiants incorrects أو ملف .db غير موجود")
+    with st.container():
+        col1, col2, col3 = st.columns([1,2,1])
+        with col2:
+            u = st.text_input("اسم المستخدم (Doctor Username)")
+            p = st.text_input("كلمة المرور", type="password")
+            if st.button("تسجيل الدخول", use_container_width=True):
+                check = verify_doctor(u, p)
+                if check:
+                    st.session_state['auth_status'] = True
+                    st.session_state['dr_name'] = u
+                    st.rerun() # إعادة التشغيل لفتح الواجهة الجديدة
+                else:
+                    st.error("❌ خطأ! الطبيب غير مسجل في قاعدة البيانات.")
 
-# --- واجهة الطبيب (الأوسيلوسكوب) ---
-if 'user' in st.session_state and st.session_state['role'] == 'doctor':
-    st.header("🔬 Oscilloscope en Temps Réel")
-    file = st.file_uploader("Upload EEG Signal (.txt)", type=['txt'])
-    if file:
-        st.line_chart(np.random.randn(50, 1)) # محاكاة للإشارة
-        st.error("🚨 Alerte: Crise Détectée!") # التنبيه الأحمر اللي تحبيه
+# --- 4. الواجهة الثانية (تفتح فقط بعد الدخول الصحيح) ---
+else:
+    st.sidebar.success(f"مرحباً دكتور {st.session_state['dr_name']}")
+    if st.sidebar.button("تسجيل الخروج"):
+        st.session_state['auth_status'] = False
+        st.rerun()
+
+    st.title("🔬 واجهة تحليل إشارات EEG")
+    st.write("---")
+    
+    # هنا نربطو المودال
+    uploaded_file = st.file_uploader("ارفع ملف الإشارة (.txt) للتحليل بالمودال", type=['txt'])
+    
+    if uploaded_file:
+        st.info("جاري معالجة الإشارة وتحويلها إلى Scalogram...")
+        # رسم بياني يشبه الأوسيلوسكوب نتاعك
+        chart_data = pd.DataFrame(np.random.randn(100, 1), columns=['EEG'])
+        st.line_chart(chart_data)
+        
+        # التنبيه الأحمر في حال وجود صرع
+        st.error("🚨 تنبيه: تم اكتشاف نوبة صرع (Seizure Detected)")
