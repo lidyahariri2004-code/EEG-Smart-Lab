@@ -1,8 +1,7 @@
 streamlit
-streamlit-sqlalchemy
 pandas
 numpy
 opencv-python-headless
 PyWavelets
-tensorflow-cpu
 matplotlib
+scikit-learn
